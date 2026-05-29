@@ -30,6 +30,8 @@ function makeState() {
 
     // Wolf team (only populated for wolf players)
     wolfTeamIds: [],
+    // Live wolf-pack pick map { wolfId: targetId } — updated as wolves choose
+    wolfPicks: {},
 
     // Amor link (only populated for linked players)
     amorPartnerId: null,
@@ -157,6 +159,11 @@ export function applyVoteResult({ nominatedId, votes, tie }) {
 
 export function applySpared() {
   _state.nominatedPlayerId = null;
+  _notify();
+}
+
+export function applyWolfPicks({ picks }) {
+  _state.wolfPicks = { ...(picks || {}) };
   _notify();
 }
 

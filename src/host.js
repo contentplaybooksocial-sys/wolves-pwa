@@ -201,6 +201,27 @@ export function hostSetPhase(phase) {
 
 export function hostReceiveNightAction(playerId, action) {
   _hostState.nightActions[playerId] = action;
+
+  // If a wolf picked a target, broadcast the live wolf-pick map to ALL wolves
+  // so they can see each other's choices and reach consensus before night ends.
+  if (action?.type === 'WOLF_KILL') {
+    broadcastWolfPicks();
+  }
+}
+
+// Send each wolf the current { wolfId → targetId } map so the night sheet
+// can show every wolf's current vote in real time.
+export function broadcastWolfPicks() {
+  const picks = {};
+  for (const [pid, a] of Object.entries(_hostState.nightActions)) {
+    if (a?.type === 'WOLF_KILL' && a.targetId) picks[pid] = a.targetId;
+  }
+  const aliveWolves = _hostState.players
+    .filter(p => p.alive && ROLES[p.roleId]?.isWolf)
+    .map(p => p.id);
+  for (const wid of aliveWolves) {
+    sendToPlayer(wid, { type: 'WOLF_PICKS', picks, aliveWolfIds: aliveWolves });
+  }
 }
 
 export function hostReceiveGunnerShoot(playerId, targetId) {
@@ -252,7 +273,7 @@ export function resolveNight() {
     switch (p.roleId) {
       case 'werewolf':
       case 'alpha_wolf':
-        if (action.type === 'WOLF_KILL') wolfKillTarget = action.targetId;
+        // Wolf kill target is decided by consensus AFTER this loop — see below.
         if (action.type === 'ALPHA_CONVERT') {
           const target = findPlayer(action.targetId);
           if (target && target.alive && !ROLES[target.roleId]?.isWolf) {
@@ -332,6 +353,19 @@ export function resolveNight() {
         }
         break;
     }
+  }
+
+  // ── Wolf kill consensus ──
+  // Classic werewolf rule: all alive wolves must agree on one target.
+  // If they disagree (or any wolf hasn't picked), no kill happens this night.
+  const aliveWolves = players.filter(p => p.alive && ROLES[p.roleId]?.isWolf);
+  const wolfPicks = aliveWolves.map(w => actions[w.id]?.targetId).filter(Boolean);
+  const allAgreed = wolfPicks.length === aliveWolves.length
+    && wolfPicks.every(t => t === wolfPicks[0]);
+  if (allAgreed && wolfPicks.length > 0) {
+    wolfKillTarget = wolfPicks[0];
+  } else if (wolfPicks.length > 0) {
+    addLog(`🐺 Sói không đồng ý mục tiêu, đêm nay không ai bị tấn công.`);
   }
 
   // Resolve kills

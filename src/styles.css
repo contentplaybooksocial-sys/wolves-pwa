@@ -540,6 +540,16 @@ body {
 .timer-display.urgent { color: var(--text-danger); animation: pulse 0.8s ease-in-out infinite; }
 .timer-display.expired { color: var(--text-danger); animation: pulse 1.2s ease-in-out infinite; }
 
+.wolf-pick-badge {
+  font-size: 0.7rem;
+  color: #ff9b9b;
+  background: rgba(204, 34, 34, 0.18);
+  border: 1px solid rgba(204, 34, 34, 0.5);
+  border-radius: 999px;
+  padding: 2px 10px;
+  margin-left: 0.5rem;
+}
+
 /* ── Night overlay ──────────────────────────────────────────────────────────── */
 #screen-night {
   background: radial-gradient(ellipse at 50% 0%, rgba(40,0,60,0.5) 0%, transparent 70%), var(--bg-void);

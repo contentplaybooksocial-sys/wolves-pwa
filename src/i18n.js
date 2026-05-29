@@ -38,6 +38,10 @@ const STRINGS = {
     btn_execute: '⚰️ Execute',
     btn_spare: '🕊️ Spare',
 
+    wolf_consensus_waiting: 'Waiting for all wolves to pick…',
+    wolf_consensus_disagree: 'Wolves disagree — pick the same target',
+    wolf_consensus_yes: 'All wolves agree on this target',
+
     // Host setup
     host_room_title: 'Your Room',
     host_qr_hint: 'Players scan the QR code with Safari/camera to join',
@@ -212,6 +216,10 @@ const STRINGS = {
     btn_add_30s: '+30 giây',
     btn_execute: '⚰️ Xử Tử',
     btn_spare: '🕊️ Tha Thứ',
+
+    wolf_consensus_waiting: 'Đang chờ các Sói chọn mục tiêu…',
+    wolf_consensus_disagree: 'Sói chưa đồng ý, hãy chọn cùng một mục tiêu',
+    wolf_consensus_yes: 'Tất cả Sói đồng ý mục tiêu này',
 
     host_room_title: 'Phòng Của Bạn',
     host_qr_hint: 'Người chơi quét mã QR bằng Safari/camera để vào phòng',

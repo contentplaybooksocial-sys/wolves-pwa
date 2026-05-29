@@ -6,6 +6,7 @@ import { PHASE, initState, getState, getPhase,
   applyWolfTeam, applyAmorLink, applyVoteUpdate,
   applyVoteResult, applySpared, applyElimination, applyGameOver,
   applyTimerSync, setPlayerConnected, resetState,
+  applyWolfPicks,
 } from './state.js';
 import {
   initNetwork, hostStart, playerJoin,
@@ -792,7 +793,12 @@ function renderNightActions(state) {
     }
   }
 
-  if (role.hasNightAction && !state.nightActionSubmitted) {
+  // Wolves: always render the pack sheet (it shows live picks + lets them
+  // change their mind until host resolves night). Other roles: show their
+  // action sheet only until they've submitted.
+  if (role.isWolf) {
+    showWolfPackSheet(state);
+  } else if (role.hasNightAction && !state.nightActionSubmitted) {
     showNightActionSheet(state);
   }
 
@@ -811,10 +817,8 @@ function showNightActionSheet(state) {
   switch (role.id) {
     case 'werewolf':
     case 'alpha_wolf':
-      title = t('sheet_wolf_title');
-      instruction = t('sheet_wolf_instr');
-      onSelect = id => submitWolfKill(id);
-      break;
+      showWolfPackSheet(state);
+      return;
     case 'seer':
       title = t('sheet_seer_title');
       instruction = t('sheet_seer_instr');
@@ -863,6 +867,80 @@ function showNightActionSheet(state) {
   }
 
   if (onSelect) showActionSheet(title, instruction, alivePlayers, onSelect);
+}
+
+// Shared wolf-pack target picker — every wolf sees the same screen with each
+// other's current pick. They must all settle on one target before the host
+// resolves night, otherwise nobody dies.
+function showWolfPackSheet(state) {
+  const container = $('action-sheet-container');
+  const aliveNonWolves = state.players.filter(p => p.alive && !state.wolfTeamIds.includes(p.id));
+
+  container.innerHTML = `
+    <div class="action-sheet">
+      <h3>${t('sheet_wolf_title')}</h3>
+      <p class="hint">${t('sheet_wolf_instr')}</p>
+      <ul class="player-list scroll-area" id="wolf-pack-list"></ul>
+      <p class="hint" id="wolf-pack-consensus" style="margin-top:0.5rem;color:var(--text-dim)"></p>
+    </div>
+  `;
+
+  function render() {
+    const picks = state.wolfPicks || {};
+    const list = $('wolf-pack-list');
+    if (!list) return;
+
+    // Build { targetId: [wolfName, ...] } for badge rendering
+    const byTarget = {};
+    for (const [wid, tid] of Object.entries(picks)) {
+      const wolfName = state.players.find(p => p.id === wid)?.name || '?';
+      (byTarget[tid] ||= []).push(wolfName);
+    }
+
+    list.innerHTML = aliveNonWolves.map(p => {
+      const wolfNames = byTarget[p.id] || [];
+      const myPick = picks[state.myPlayerId] === p.id;
+      const badge = wolfNames.length
+        ? `<span class="wolf-pick-badge">🐺 ${wolfNames.join(', ')}</span>`
+        : '';
+      return `
+        <li class="player-item ${myPick ? 'selected-target' : ''}" data-id="${p.id}">
+          <div class="player-dot"></div>
+          <span class="player-name">${p.name}</span>
+          ${badge}
+        </li>
+      `;
+    }).join('');
+
+    list.querySelectorAll('.player-item').forEach(item => {
+      item.addEventListener('click', () => {
+        submitWolfKill(item.dataset.id);
+      });
+    });
+
+    // Consensus message
+    const aliveWolves = state.players.filter(p => p.alive && state.wolfTeamIds.includes(p.id));
+    const allPicked = aliveWolves.every(w => picks[w.id]);
+    const allAgree = allPicked && aliveWolves.length > 0
+      && aliveWolves.every(w => picks[w.id] === picks[aliveWolves[0].id]);
+    const msgEl = $('wolf-pack-consensus');
+    if (msgEl) {
+      if (allAgree) {
+        msgEl.textContent = '✓ ' + t('wolf_consensus_yes');
+        msgEl.style.color = 'var(--text-success)';
+      } else if (allPicked) {
+        msgEl.textContent = '⚠️ ' + t('wolf_consensus_disagree');
+        msgEl.style.color = 'var(--text-danger)';
+      } else {
+        msgEl.textContent = t('wolf_consensus_waiting');
+        msgEl.style.color = 'var(--text-dim)';
+      }
+    }
+  }
+
+  render();
+  // Re-render when wolf picks update
+  state._wolfPackRender = render;
 }
 
 function showWitchSheet(state) {
@@ -1488,6 +1566,9 @@ function handlePlayerMessage(msg) {
       break;
     case 'WOLF_TEAM':
       applyWolfTeam(msg);
+      break;
+    case 'WOLF_PICKS':
+      applyWolfPicks(msg);
       break;
     case 'AMOR_LINK':
       applyAmorLink(msg);

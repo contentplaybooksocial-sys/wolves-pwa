@@ -10,8 +10,9 @@ import {
 // ── Night actions ─────────────────────────────────────────────────────────────
 
 export function submitWolfKill(targetId) {
+  // Wolves can change their pick freely until the host resolves night,
+  // so we deliberately do NOT mark nightActionSubmitted here.
   sendToHost({ type: 'NIGHT_ACTION', action: { type: 'WOLF_KILL', targetId } });
-  setNightActionSubmitted();
 }
 
 export function submitAlphaConvert(targetId) {
