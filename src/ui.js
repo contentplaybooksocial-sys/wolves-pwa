@@ -417,11 +417,20 @@ async function startOfflineAddPlayer() {
         // Update the player name in host-state when we connect
         // (we passed a placeholder when creating the offer — fix it here)
         hostOfflineAcceptAnswer(newPlayerId, answerSDP);
-        // Override the pending player's name once the peer connects
-        // We'll watch for the player joined event and update the name
         _pendingOfflinePlayerName = name;
         _pendingOfflinePlayerId = newPlayerId;
         $('offline-pair-status').textContent = t('offline_connecting');
+
+        // Timeout watchdog: if no connection event in 30s, surface a clear error
+        const watchdog = setTimeout(() => {
+          // Only fire if we're still on the pair screen (didn't connect)
+          if (document.getElementById('screen-offline-pair')?.classList.contains('active')) {
+            $('offline-pair-status').textContent = '⚠️ ' + t('offline_handshake_timeout');
+          }
+        }, 30000);
+        // Clear when this player actually joins
+        window._offlineWatchdogs = window._offlineWatchdogs || {};
+        window._offlineWatchdogs[newPlayerId] = watchdog;
       } catch (err) {
         $('offline-pair-status').textContent = '⚠️ ' + (err.message || 'Scan failed');
       }
@@ -462,6 +471,12 @@ function handleHostPlayerJoined(playerId, playerName) {
   _pendingOfflinePlayerId = null;
   _pendingOfflinePlayerName = null;
   _offlinePendingPlayerId = null;
+
+  // Clear any pending handshake-watchdog for this player
+  if (window._offlineWatchdogs?.[playerId]) {
+    clearTimeout(window._offlineWatchdogs[playerId]);
+    delete window._offlineWatchdogs[playerId];
+  }
 
   const result = hostAddPlayer(playerId, realName);
   if (result?.rejoined) {
@@ -591,6 +606,14 @@ async function startOfflinePlayerJoin() {
     renderQR($('offline-answer-qr'), encoded, 'L');
     $('offline-answer-wrap')?.classList.remove('hidden');
     $('offline-join-status').textContent = t('offline_connecting');
+
+    // Timeout watchdog: if not connected in 30s, surface a clear error
+    const watchdog = setTimeout(() => {
+      if (document.getElementById('screen-offline-join')?.classList.contains('active')) {
+        $('offline-join-error').textContent = '⚠️ ' + t('offline_handshake_timeout');
+      }
+    }, 30000);
+    window._offlineJoinWatchdog = watchdog;
   } catch (err) {
     if (err.message === 'Scan cancelled') return;
     $('offline-join-error').textContent = '⚠️ ' + (err.message || 'Failed');
@@ -602,6 +625,10 @@ let _pendingOfflineMyName = null;
 function handlePlayerConnected() {
   // (Offline mode: host already has our name via the pairing flow's pending-name slot.)
   _pendingOfflineMyName = null;
+  if (window._offlineJoinWatchdog) {
+    clearTimeout(window._offlineJoinWatchdog);
+    window._offlineJoinWatchdog = null;
+  }
   showScreen('lobby');
 }
 

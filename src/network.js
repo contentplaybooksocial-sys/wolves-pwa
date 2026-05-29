@@ -8,6 +8,19 @@
 //      Uses trickle: false so each side produces ONE complete SDP with all ICE
 //      candidates batched — compressible into a single dense QR.
 
+// ICE configuration: STUN servers help iOS/Safari discover their real IP for LAN
+// peer-to-peer. Without STUN, iOS WebRTC emits mDNS-randomized "*.local" candidates
+// that the other phone can't resolve, so the handshake hangs even on the same WiFi.
+// STUN is used only during the initial handshake — actual game data flows P2P over LAN.
+// Requires brief internet at room-setup time; game plays offline thereafter.
+const ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+  ],
+};
+
 let _wsUrl = null;
 let _ws = null;
 let _roomCode = null;
@@ -52,7 +65,7 @@ export function hostCreatePeerFor(playerId, playerName) {
   const peer = new SimplePeer({
     initiator: true,
     trickle: true,
-    config: { iceServers: [] },
+    config: ICE_CONFIG,
   });
 
   _hostPeers.set(playerId, peer);
@@ -100,7 +113,7 @@ function _playerCreatePeer() {
   const peer = new SimplePeer({
     initiator: false,
     trickle: true,
-    config: { iceServers: [] },
+    config: ICE_CONFIG,
   });
 
   _playerPeer = peer;
@@ -159,7 +172,7 @@ export function hostOfflineCreateOffer(playerId, playerName) {
     const peer = new SimplePeer({
       initiator: true,
       trickle: false, // batch all ICE candidates into the single SDP
-      config: { iceServers: [] },
+      config: ICE_CONFIG,
     });
 
     _hostPeers.set(playerId, peer);
@@ -227,7 +240,7 @@ export function playerOfflineAcceptOffer(offerSDP, myId) {
     const peer = new SimplePeer({
       initiator: false,
       trickle: false,
-      config: { iceServers: [] },
+      config: ICE_CONFIG,
     });
 
     _playerPeer = peer;

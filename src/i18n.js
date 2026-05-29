@@ -29,6 +29,7 @@ const STRINGS = {
     offline_invalid_qr: 'That QR code was not valid. Try again.',
     offline_name_first: 'Enter the player\'s name first',
     offline_camera_denied: 'Camera access denied. Enable it in your browser settings.',
+    offline_handshake_timeout: 'Connection timed out. Both phones must be on the same WiFi with internet at setup time. Try again.',
 
     // Host setup
     host_room_title: 'Your Room',
@@ -196,6 +197,7 @@ const STRINGS = {
     offline_invalid_qr: 'Mã QR không hợp lệ. Thử lại.',
     offline_name_first: 'Nhập tên người chơi trước',
     offline_camera_denied: 'Truy cập camera bị từ chối. Cấp quyền trong cài đặt trình duyệt.',
+    offline_handshake_timeout: 'Kết nối quá hạn. Cả hai điện thoại phải cùng WiFi và có internet lúc thiết lập. Thử lại.',
 
     host_room_title: 'Phòng Của Bạn',
     host_qr_hint: 'Người chơi quét mã QR bằng Safari/camera để vào phòng',
