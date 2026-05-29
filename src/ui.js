@@ -50,6 +50,7 @@ let _gmPanelOpen = false;
 let _seerPendingResult = null; // store until player confirms
 let _hunterRetaliating = false;
 let _selectedRoleIds = [];
+let _offlineHostMode = false; // true if the host started via "Host Offline" instead of WiFi mode
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
@@ -217,6 +218,7 @@ function bindHostSetup() {
 async function startHostFlow() {
   _isHost = true;
   _myId = 'HOST';
+  _offlineHostMode = false;
   _roomCode = generateRoomCode();
 
   showScreen('host-setup');
@@ -342,6 +344,7 @@ let _offlinePendingPlayerId = null;
 function startOfflineHostFlow() {
   _isHost = true;
   _myId = 'HOST';
+  _offlineHostMode = true;
   hostInitOfflineMode();
   initHostGame();
   initState(true, 'HOST', onStateChange);
@@ -1676,8 +1679,15 @@ function showGameOver(state) {
       if (p.connected) hostAddPlayer(p.id, p.name);
     }
     document.body.classList.remove('is-host-game-over');
-    showScreen('host-setup');
-    renderHostLobbyPlayers();
+
+    // Route to the correct setup screen based on which mode we started in
+    if (_offlineHostMode) {
+      showScreen('offline-host');
+      renderOfflineHostPlayers();
+    } else {
+      showScreen('host-setup');
+      renderHostLobbyPlayers();
+    }
     applyPreset(Math.max(9, oldPlayers.filter(p => p.connected).length));
   }, { once: true });
 

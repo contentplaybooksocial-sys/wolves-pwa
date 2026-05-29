@@ -2,7 +2,7 @@
 // Strategy: network-first for app shell (HTML/CSS/JS) so updates ship instantly when online.
 //           cache-first for images/fonts so game art works offline.
 // All paths resolved relative to the SW's location so this works at both / and /repo-name/.
-const CACHE = 'wolves-v14';
+const CACHE = 'wolves-v15';
 
 const ROLE_IDS = [
   'werewolf','alpha_wolf','villager','cursed_villager','lycan',
