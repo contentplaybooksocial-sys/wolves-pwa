@@ -299,8 +299,17 @@ function updateRoleSelectorUI() {
 
   const connected = getHostState()?.players?.filter(p => p.connected)?.length || 0;
   const needed = _selectedRoleIds.length;
-  $('role-count-status').textContent = `${needed} vai cho ${connected} người chơi`;
-  $('btn-reveal-roles').disabled = connected === 0 || needed !== connected;
+  const statusText = getLang() === 'en'
+    ? `${needed} roles for ${connected} players`
+    : `${needed} vai cho ${connected} người chơi`;
+
+  // Update BOTH the WiFi-mode and offline-mode status labels + buttons
+  const statusEls = [$('role-count-status'), $('offline-role-count-status')];
+  statusEls.forEach(el => { if (el) el.textContent = statusText; });
+
+  const canDeal = connected > 0 && needed === connected;
+  const dealBtns = [$('btn-reveal-roles'), $('btn-offline-reveal-roles')];
+  dealBtns.forEach(btn => { if (btn) btn.disabled = !canDeal; });
 }
 
 function dealRoles() {
@@ -309,9 +318,13 @@ function dealRoles() {
     alert(result.error);
     return;
   }
-  $('btn-reveal-roles').disabled = true;
-  $('btn-start-game').disabled = false;
-  $('host-status').textContent = '✓ Đã chia vai — nhấn Bắt Đầu khi mọi người sẵn sàng';
+  // Disable BOTH deal buttons, enable BOTH start buttons
+  [$('btn-reveal-roles'), $('btn-offline-reveal-roles')].forEach(b => { if (b) b.disabled = true; });
+  [$('btn-start-game'), $('btn-offline-start-game')].forEach(b => { if (b) b.disabled = false; });
+  const doneMsg = getLang() === 'en'
+    ? '✓ Roles dealt — tap Start Game when everyone is ready'
+    : '✓ Đã chia vai, nhấn Bắt Đầu khi mọi người sẵn sàng';
+  if ($('host-status')) $('host-status').textContent = doneMsg;
 }
 
 function startGame() {
@@ -339,27 +352,27 @@ function startOfflineHostFlow() {
   bindOfflineHostSetup();
 }
 
+let _offlineSetupBound = false;
 function bindOfflineHostSetup() {
+  if (_offlineSetupBound) return;
+  _offlineSetupBound = true;
+
   $('btn-offline-host-cancel')?.addEventListener('click', () => {
     disconnect();
     showScreen('home');
-  }, { once: true });
+  });
   $('btn-offline-add-player')?.addEventListener('click', startOfflineAddPlayer);
   $('btn-offline-reveal-roles')?.addEventListener('click', dealRoles);
   $('btn-offline-start-game')?.addEventListener('click', startGame);
   $('btn-offline-pair-cancel')?.addEventListener('click', () => {
     if (_offlinePendingPlayerId) {
-      // The peer object exists but isn't connected — remove from registry
       try { window._cleanupPendingOfflinePeer?.(_offlinePendingPlayerId); } catch (_) {}
       _offlinePendingPlayerId = null;
     }
     showScreen('offline-host');
   });
-
-  // Preset buttons in offline mode (same handler as WiFi)
-  document.querySelectorAll('#screen-offline-host .preset-btn').forEach(btn => {
-    btn.addEventListener('click', () => applyPreset(parseInt(btn.dataset.count)));
-  });
+  // (Preset buttons inside #screen-offline-host are already wired by bindHostSetup at boot
+  //  since its querySelectorAll('.preset-btn') matches BOTH grids.)
 }
 
 function buildOfflineRoleSelector() {
