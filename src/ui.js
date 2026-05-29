@@ -169,6 +169,29 @@ function bindHome() {
   $('btn-join-room').addEventListener('click', () => showScreen('player-join'));
   $('btn-offline-host')?.addEventListener('click', startOfflineHostFlow);
   $('btn-offline-join')?.addEventListener('click', () => showScreen('offline-join'));
+  detectWiFiServerMode();
+}
+
+// Probe /ip to see if a Node signaling server is available on this origin.
+// If not (e.g. running on GitHub Pages), hide the WiFi-server buttons so users
+// don't try a flow that can't possibly work.
+async function detectWiFiServerMode() {
+  try {
+    const resp = await fetch('ip', { cache: 'no-store' });
+    if (!resp.ok) throw new Error('no /ip');
+    const ct = resp.headers.get('content-type') || '';
+    if (!ct.includes('json')) throw new Error('not json');
+    // Server is present — keep the WiFi-server buttons visible
+    return;
+  } catch (_) {
+    // No server → hide WiFi-mode buttons and the divider, promote offline mode
+    $('btn-create-room')?.classList.add('hidden');
+    $('btn-join-room')?.classList.add('hidden');
+    // Hide the divider above the offline buttons (the only one with the "or" label)
+    document.querySelectorAll('#screen-home [data-i18n="home_or"]').forEach(el => {
+      el.parentElement?.classList.add('hidden');
+    });
+  }
 }
 
 // ── Host Setup ────────────────────────────────────────────────────────────────
@@ -203,7 +226,11 @@ async function startHostFlow() {
   $('host-room-code').textContent = _roomCode;
 
   try {
-    const ipData = await fetch('/ip').then(r => r.json());
+    const ipResp = await fetch('ip', { cache: 'no-store' });
+    if (!ipResp.ok || !(ipResp.headers.get('content-type') || '').includes('json')) {
+      throw new Error('No local server. Use “Host Offline (QR mode)” instead.');
+    }
+    const ipData = await ipResp.json();
     _wsUrl = `ws://${ipData.ip}:${ipData.port}`;
     const joinUrl = `http://${ipData.ip}:${ipData.port}?room=${_roomCode}`;
 
