@@ -21,6 +21,7 @@ function makeHostState() {
     nightActions: {},   // { playerId: { type, target?, ... } }
     log: [],            // LogEntry[]
     votes: {},          // { targetId: voteCount }
+    nominatedPlayerId: null, // player currently on death row (between vote and verdict)
     wolfTeam: [],       // playerIds with wolf faction
     gunnerBullets: {}, // { playerId: remaining }
     witchState: {},     // { playerId: { healUsed, poisonUsed } }
@@ -428,49 +429,73 @@ export function hostReceiveVote(voterId, targetId) {
   broadcastToPlayers({ type: 'VOTE_UPDATE', tally: { ..._hostState.votes } });
 }
 
+// Tally votes and NOMINATE the most-voted player for death row.
+// Does NOT eliminate — that requires executeNominated() after defense phase.
+// Returns { nominatedId, tie } so the UI can route to defense phase or skip if no votes / tie.
 export function resolveVote() {
   const votes = _hostState.votes;
   let maxVotes = 0;
-  let eliminated = null;
+  let nominated = null;
+  let tieCount = 0;
 
   for (const [id, count] of Object.entries(votes)) {
-    if (count > maxVotes) { maxVotes = count; eliminated = id; }
+    if (count > maxVotes) { maxVotes = count; nominated = id; tieCount = 1; }
+    else if (count === maxVotes && maxVotes > 0) { tieCount += 1; }
   }
 
-  if (!eliminated) return { eliminated: null };
+  if (!nominated || maxVotes === 0) return { nominatedId: null };
+  if (tieCount > 1) {
+    // Tie → no one is nominated; vote is dropped
+    broadcastToPlayers({ type: 'VOTE_RESULT', nominatedId: null, votes: { ...votes }, tie: true });
+    addLog(`☀️ Ngày ${_hostState.round}: Bỏ phiếu hoà, không ai bị buộc tội.`);
+    return { nominatedId: null, tie: true };
+  }
 
-  const target = _hostState.players.find(p => p.id === eliminated);
-  if (!target) return { eliminated: null };
+  const target = _hostState.players.find(p => p.id === nominated);
+  if (!target) return { nominatedId: null };
 
-  const role = ROLES[target.roleId];
+  _hostState.nominatedPlayerId = nominated;
   broadcastToPlayers({
     type: 'VOTE_RESULT',
-    eliminatedId: eliminated,
+    nominatedId: nominated,
     votes: { ...votes },
-    revealRole: target.roleId,
   });
 
-  addLog(`☀️ Ngày ${_hostState.round}: Bỏ phiếu loại ${target.name} (${role?.nameVi}).`);
+  addLog(`☀️ Ngày ${_hostState.round}: ${target.name} bị buộc tội. Đang biện hộ…`);
+  return { nominatedId: nominated };
+}
+
+// Host taps "Execute" after defense phase — actually eliminates the nominated player.
+export function executeNominated() {
+  const id = _hostState.nominatedPlayerId;
+  if (!id) return { ok: false, reason: 'No one nominated' };
+  const target = _hostState.players.find(p => p.id === id);
+  if (!target || !target.alive) return { ok: false, reason: 'Already dead' };
+  _hostState.nominatedPlayerId = null;
+
+  const role = ROLES[target.roleId];
+  addLog(`⚰️ ${target.name} (${role?.nameVi}) bị xử tử.`);
 
   // Jester wins if voted out
   if (role?.winOnVoteElim) {
+    eliminatePlayer(id, 'vote');
     setTimeout(() => {
       broadcastToPlayers({ type: 'GAME_OVER', winner: 'jester', jesterName: target.name });
     }, 3000);
-    return { eliminated, jesterWin: true };
+    return { ok: true, jesterWin: true };
   }
 
-  // Hunter gets retaliation shot
+  // Hunter retaliation shot
   if (role?.onDeathShoot) {
-    sendToPlayer(eliminated, { type: 'HUNTER_RETALIATE' });
+    sendToPlayer(id, { type: 'HUNTER_RETALIATE' });
   }
 
-  eliminatePlayer(eliminated, 'vote');
+  eliminatePlayer(id, 'vote');
 
-  // Amor link
-  if (_hostState.amorLink?.includes(eliminated)) {
+  // Amor link death chain
+  if (_hostState.amorLink?.includes(id)) {
     const [a, b] = _hostState.amorLink;
-    const partnerId = a === eliminated ? b : a;
+    const partnerId = a === id ? b : a;
     const partner = _hostState.players.find(p => p.id === partnerId && p.alive);
     if (partner) {
       setTimeout(() => eliminatePlayer(partnerId, 'amor'), 1000);
@@ -478,7 +503,20 @@ export function resolveVote() {
   }
 
   checkWinConditions();
-  return { eliminated };
+  return { ok: true };
+}
+
+// Host taps "Spare" after defense phase — no one dies, jump to next night.
+export function spareNominated() {
+  const id = _hostState.nominatedPlayerId;
+  if (!id) return { ok: false };
+  const target = _hostState.players.find(p => p.id === id);
+  _hostState.nominatedPlayerId = null;
+  if (target) {
+    addLog(`🕊️ ${target.name} được tha thứ.`);
+    broadcastToPlayers({ type: 'SPARED', spareId: id });
+  }
+  return { ok: true };
 }
 
 // ── Elimination ───────────────────────────────────────────────────────────────

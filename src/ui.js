@@ -4,7 +4,7 @@ import { ROLES, PRESETS, makeRoleCard } from './roles.js';
 import { PHASE, initState, getState, getPhase,
   applyPhaseChange, applyLobbyUpdate, applyMyRole,
   applyWolfTeam, applyAmorLink, applyVoteUpdate,
-  applyVoteResult, applyElimination, applyGameOver,
+  applyVoteResult, applySpared, applyElimination, applyGameOver,
   applyTimerSync, setPlayerConnected, resetState,
 } from './state.js';
 import {
@@ -22,6 +22,7 @@ import {
   broadcastLobbyUpdate, assignRoles, hostSetPhase,
   hostReceiveNightAction, hostReceiveGunnerShoot,
   resolveNight, hostReceiveVote, resolveVote,
+  executeNominated, spareNominated,
   checkWinConditions, getLog, getPresetForCount,
   hostResendPrivateState,
 } from './host.js';
@@ -402,8 +403,6 @@ async function startOfflineAddPlayer() {
   const newPlayerId = generateId();
   _offlinePendingPlayerId = newPlayerId;
 
-  // Wait for name (could prompt, but we want it on the pair screen for UX)
-  $('offline-player-name-input').value = '';
   $('offline-pair-status').textContent = t('offline_generating');
   $('btn-offline-scan-answer').disabled = true;
 
@@ -412,26 +411,28 @@ async function startOfflineAddPlayer() {
   try {
     const offerSDP = await hostOfflineCreateOffer(newPlayerId, /*name=*/'(pending)');
     const encoded = await encodeSDP(offerSDP);
-    // Render the QR
     renderQR($('offline-pair-qr'), encoded, 'L');
     $('offline-pair-status').textContent = t('offline_pair_step1');
     $('btn-offline-scan-answer').disabled = false;
 
-    // When user taps "Scan Player's Answer"
+    // When host taps "Scan Player's Answer" — no name input required, name rides inside the answer
     $('btn-offline-scan-answer').onclick = async () => {
-      const name = $('offline-player-name-input').value.trim();
-      if (!name) {
-        $('offline-pair-status').textContent = t('offline_name_first');
-        return;
-      }
       try {
         const scanned = await scanQR({
           promptText: t('offline_scan_answer'),
           cancelText: t('btn_cancel'),
         });
-        const answerSDP = await decodeSDP(scanned);
-        // Update the player name in host-state when we connect
-        // (we passed a placeholder when creating the offer — fix it here)
+        const decoded = await decodeSDP(scanned);
+        // Unwrap envelope {n: name, s: sdp}; fall back to bare-SDP for older clients
+        let name = '?', answerSDP = decoded;
+        try {
+          const env = JSON.parse(decoded);
+          if (env && typeof env === 'object' && 'n' in env && 's' in env) {
+            name = String(env.n).trim() || '?';
+            answerSDP = env.s;
+          }
+        } catch (_) { /* not an envelope, treat as bare SDP */ }
+
         hostOfflineAcceptAnswer(newPlayerId, answerSDP);
         _pendingOfflinePlayerName = name;
         _pendingOfflinePlayerId = newPlayerId;
@@ -613,10 +614,10 @@ async function startOfflinePlayerJoin() {
     $('offline-join-status').textContent = t('offline_generating');
 
     const answerSDP = await playerOfflineAcceptOffer(offerSDP, _myId);
-    const encoded = await encodeSDP(answerSDP);
+    // Wrap with the player's name so host doesn't have to type it
+    const envelope = JSON.stringify({ n: name, s: answerSDP });
+    const encoded = await encodeSDP(envelope);
 
-    // Send the player's name to the host as the first message after connection
-    // (handled in onConnected callback automatically)
     _pendingOfflineMyName = name;
 
     renderQR($('offline-answer-qr'), encoded, 'L');
@@ -692,6 +693,9 @@ function onStateChange(state) {
     case PHASE.VOTE_RESULT:
       showScreen('vote');
       renderVoteResult(state);
+      break;
+    case PHASE.DAY_DEFENSE:
+      renderDefensePhase(state);
       break;
     case PHASE.ELIMINATION:
       // shown via overlay
@@ -1052,6 +1056,81 @@ function renderVoteResult(state) {
   }
 }
 
+// ── Defense Phase ─────────────────────────────────────────────────────────────
+
+let _defenseTimer = null;
+let _defenseRemaining = 60;
+
+function renderDefensePhase(state) {
+  showScreen('defense');
+
+  const nominatedId = state.nominatedPlayerId;
+  const target = state.players.find(p => p.id === nominatedId);
+  $('defense-nominated-name').textContent = target?.name || '?';
+
+  // Reset timer
+  _defenseRemaining = 60;
+  $('defense-timer').textContent = formatTime(_defenseRemaining);
+
+  // Host gets the verdict + extend buttons. Players see a "waiting" message.
+  if (_isHost) {
+    $('defense-host-controls').classList.remove('hidden');
+    $('defense-player-wait').classList.add('hidden');
+    bindDefenseHostButtons();
+  } else {
+    $('defense-host-controls').classList.add('hidden');
+    $('defense-player-wait').classList.remove('hidden');
+  }
+
+  // Start the visual countdown (informational — host has total control)
+  stopDefenseTimer();
+  _defenseTimer = setInterval(() => {
+    _defenseRemaining = Math.max(0, _defenseRemaining - 1);
+    $('defense-timer').textContent = formatTime(_defenseRemaining);
+    if (_defenseRemaining === 0) {
+      // Visual cue only — host still decides
+      $('defense-timer').classList.add('expired');
+    }
+  }, 1000);
+}
+
+function stopDefenseTimer() {
+  if (_defenseTimer) { clearInterval(_defenseTimer); _defenseTimer = null; }
+  $('defense-timer')?.classList.remove('expired');
+}
+
+let _defenseHostButtonsBound = false;
+function bindDefenseHostButtons() {
+  if (_defenseHostButtonsBound) return;
+  _defenseHostButtonsBound = true;
+
+  $('btn-defense-add-30')?.addEventListener('click', () => {
+    _defenseRemaining += 30;
+    $('defense-timer').textContent = formatTime(_defenseRemaining);
+    $('defense-timer').classList.remove('expired');
+  });
+
+  $('btn-defense-execute')?.addEventListener('click', () => {
+    if (!_isHost) return;
+    stopDefenseTimer();
+    const r = executeNominated();
+    if (!r.ok) {
+      alert(r.reason || 'Cannot execute');
+      return;
+    }
+    // executeNominated() already broadcast PHASE_CHANGE:ELIMINATION + handles
+    // jester/hunter/amor flows. Just move host's screen forward.
+    hostSetPhase(PHASE.NIGHT_INTRO);
+  });
+
+  $('btn-defense-spare')?.addEventListener('click', () => {
+    if (!_isHost) return;
+    stopDefenseTimer();
+    spareNominated();
+    hostSetPhase(PHASE.NIGHT_INTRO);
+  });
+}
+
 // ── Elimination Overlay ───────────────────────────────────────────────────────
 
 function showEliminationOverlay(eliminatedId, roleId, cause) {
@@ -1179,7 +1258,12 @@ function bindGMPanel() {
   $('btn-end-vote')?.addEventListener('click', () => {
     if (_isHost) {
       const result = resolveVote();
-      if (!result.eliminated) hostSetPhase(PHASE.NIGHT_INTRO);
+      if (result.nominatedId) {
+        hostSetPhase(PHASE.DAY_DEFENSE);
+      } else {
+        // No votes or tie — skip straight to next night
+        hostSetPhase(PHASE.NIGHT_INTRO);
+      }
     }
   });
   $('btn-start-night-timer')?.addEventListener('click', startNightTimer);
@@ -1414,6 +1498,9 @@ function handlePlayerMessage(msg) {
       break;
     case 'VOTE_RESULT':
       applyVoteResult(msg);
+      break;
+    case 'SPARED':
+      applySpared();
       break;
     case 'TIMER_SYNC':
       applyTimerSync(msg);

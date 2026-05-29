@@ -183,17 +183,6 @@
 
       <p class="status-text" id="offline-pair-status" data-i18n="offline_pair_step1">Step 1 of 2: Player scans this QR with their phone</p>
 
-      <input
-        id="offline-player-name-input"
-        class="text-input"
-        type="text"
-        maxlength="20"
-        data-i18n-placeholder="join_name_placeholder"
-        autocomplete="off"
-        autocapitalize="words"
-        spellcheck="false"
-      />
-
       <div class="btn-group">
         <button class="btn btn-primary" id="btn-offline-scan-answer" data-i18n="offline_scan_answer">📷 Scan Player's Answer</button>
         <button class="btn btn-ghost btn-sm" id="btn-offline-pair-cancel" data-i18n="btn_cancel">Cancel</button>
@@ -298,6 +287,24 @@
 
       <!-- Host only: end vote button -->
       <button class="btn btn-secondary hidden" id="btn-end-vote" data-i18n="vote_host_end">End Voting (Host)</button>
+    </section>
+
+    <!-- ── DEFENSE (death-row player pleads their case) ─────────────────────── -->
+    <section id="screen-defense" class="screen" style="gap:1rem;justify-content:center">
+      <div class="phase-banner day" data-i18n="defense_banner">⚖️ Defense</div>
+      <h2 class="winner-title" id="defense-nominated-name" style="color:var(--text-danger);font-size:clamp(1.8rem,8vw,2.4rem)">—</h2>
+      <p class="hint" data-i18n="defense_subtitle">is on death row and must defend themselves</p>
+
+      <div class="timer-display" id="defense-timer" style="font-size:3.5rem">1:00</div>
+
+      <!-- Host-only verdict + timer controls -->
+      <div class="btn-group hidden" id="defense-host-controls" style="gap:0.6rem">
+        <button class="btn btn-ghost btn-sm" id="btn-defense-add-30" data-i18n="btn_add_30s">+30s</button>
+        <button class="btn btn-danger" id="btn-defense-execute" data-i18n="btn_execute">⚰️ Execute</button>
+        <button class="btn btn-secondary" id="btn-defense-spare" data-i18n="btn_spare">🕊️ Spare</button>
+      </div>
+
+      <p class="hint hidden" id="defense-player-wait" style="color:var(--text-dim)" data-i18n="defense_player_wait">The host will decide after the defense…</p>
     </section>
 
     <!-- ── GAME OVER ──────────────────────────────────────────────────────── -->

@@ -538,6 +538,7 @@ body {
   letter-spacing: 0.05em;
 }
 .timer-display.urgent { color: var(--text-danger); animation: pulse 0.8s ease-in-out infinite; }
+.timer-display.expired { color: var(--text-danger); animation: pulse 1.2s ease-in-out infinite; }
 
 /* ── Night overlay ──────────────────────────────────────────────────────────── */
 #screen-night {

@@ -10,6 +10,7 @@ export const PHASE = Object.freeze({
   DAY_DISCUSSION:  'DAY_DISCUSSION',
   DAY_VOTE:        'DAY_VOTE',
   VOTE_RESULT:     'VOTE_RESULT',
+  DAY_DEFENSE:     'DAY_DEFENSE',
   ELIMINATION:     'ELIMINATION',
   GAME_OVER:       'GAME_OVER',
 });
@@ -36,6 +37,8 @@ function makeState() {
     // Voting state
     votes: {},    // { targetId: count }
     myVote: null,
+    nominatedPlayerId: null, // who's on death row (between vote and verdict)
+    tie: false,
 
     // Night actions submitted this round (player side)
     nightActionSubmitted: false,
@@ -145,8 +148,15 @@ export function applyVoteUpdate({ tally }) {
   _notify();
 }
 
-export function applyVoteResult({ eliminatedId, votes }) {
-  _state.votes = { ...votes };
+export function applyVoteResult({ nominatedId, votes, tie }) {
+  _state.votes = { ...(votes || {}) };
+  _state.nominatedPlayerId = nominatedId || null;
+  _state.tie = !!tie;
+  _notify();
+}
+
+export function applySpared() {
+  _state.nominatedPlayerId = null;
   _notify();
 }
 

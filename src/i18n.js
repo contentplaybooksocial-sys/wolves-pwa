@@ -31,6 +31,13 @@ const STRINGS = {
     offline_camera_denied: 'Camera access denied. Enable it in your browser settings.',
     offline_handshake_timeout: 'Connection timed out. Both phones must be on the same WiFi with internet at setup time. Try again.',
 
+    defense_banner: '⚖️ Defense',
+    defense_subtitle: 'is on death row and must defend themselves',
+    defense_player_wait: 'The host will decide after the defense…',
+    btn_add_30s: '+30s',
+    btn_execute: '⚰️ Execute',
+    btn_spare: '🕊️ Spare',
+
     // Host setup
     host_room_title: 'Your Room',
     host_qr_hint: 'Players scan the QR code with Safari/camera to join',
@@ -198,6 +205,13 @@ const STRINGS = {
     offline_name_first: 'Nhập tên người chơi trước',
     offline_camera_denied: 'Truy cập camera bị từ chối. Cấp quyền trong cài đặt trình duyệt.',
     offline_handshake_timeout: 'Kết nối quá hạn. Cả hai điện thoại phải cùng WiFi và có internet lúc thiết lập. Thử lại.',
+
+    defense_banner: '⚖️ Biện Hộ',
+    defense_subtitle: 'đang bị buộc tội và phải tự biện hộ',
+    defense_player_wait: 'Chủ phòng sẽ quyết định sau phần biện hộ…',
+    btn_add_30s: '+30 giây',
+    btn_execute: '⚰️ Xử Tử',
+    btn_spare: '🕊️ Tha Thứ',
 
     host_room_title: 'Phòng Của Bạn',
     host_qr_hint: 'Người chơi quét mã QR bằng Safari/camera để vào phòng',
