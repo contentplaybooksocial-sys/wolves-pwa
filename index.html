@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0609" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <base href="./" />
+  <title>Wolves — Wolvesville Party</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+  <!-- Language toggle (top-right of every screen) -->
+  <button class="lang-toggle" id="lang-toggle" title="Switch language">EN · VI</button>
+
+  <main id="app">
+
+    <!-- ── HOME ──────────────────────────────────────────────────────────── -->
+    <section id="screen-home" class="screen active" style="justify-content:center;gap:1.5rem">
+      <div>
+        <h1 class="game-title" data-i18n="app_title">WOLVES</h1>
+        <p class="game-subtitle" data-i18n="app_subtitle">Wolvesville · Offline Party Game</p>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-create-room" data-i18n="home_create">🎲 Create Room (Host)</button>
+        <button class="btn btn-secondary" id="btn-join-room" data-i18n="home_join">👥 Join Room</button>
+      </div>
+
+      <!-- Divider -->
+      <div style="display:flex;align-items:center;gap:0.6rem;width:100%;max-width:260px;opacity:0.55;margin:0.4rem 0">
+        <div style="flex:1;height:1px;background:var(--border-dim)"></div>
+        <span style="font-size:0.65rem;letter-spacing:0.25em;color:var(--text-dim);text-transform:uppercase" data-i18n="home_or">or</span>
+        <div style="flex:1;height:1px;background:var(--border-dim)"></div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-ghost" id="btn-offline-host" data-i18n="home_offline_host">📷 Host Offline (QR mode)</button>
+        <button class="btn btn-ghost" id="btn-offline-join" data-i18n="home_offline_join">📷 Join Offline (Scan QR)</button>
+      </div>
+
+      <p class="hint" data-i18n="home_hint">Connect over local WiFi — no internet needed</p>
+    </section>
+
+    <!-- ── HOST SETUP ──────────────────────────────────────────────────────── -->
+    <section id="screen-host-setup" class="screen" style="gap:0.9rem">
+      <h2 class="screen-title" data-i18n="host_room_title">Your Room</h2>
+
+      <div class="room-code" id="host-room-code">------</div>
+
+      <div class="qr-wrap">
+        <canvas id="host-qr-canvas" class="qr-canvas" width="180" height="180"></canvas>
+      </div>
+
+      <p class="hint" data-i18n="host_qr_hint">Players scan the QR code with Safari/camera to join</p>
+      <p class="status-text" id="host-status" data-i18n="host_starting">Starting…</p>
+
+      <!-- Live player list -->
+      <div class="panel w-full" style="padding:0.75rem">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left" data-i18n="host_players_label">Players In Lobby</p>
+        <ul class="player-list" id="host-player-list">
+          <li class="player-item" style="justify-content:center;color:var(--text-dim)" data-i18n="host_no_players">No one yet…</li>
+        </ul>
+      </div>
+
+      <!-- Role selector -->
+      <div class="panel w-full" style="padding:0.75rem">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left" data-i18n="host_preset_label">Quick Preset by Player Count</p>
+        <div class="preset-row">
+          <button class="preset-btn" data-count="9">9</button>
+          <button class="preset-btn" data-count="10">10</button>
+          <button class="preset-btn" data-count="11">11</button>
+          <button class="preset-btn" data-count="12">12</button>
+          <button class="preset-btn" data-count="13">13</button>
+          <button class="preset-btn" data-count="14">14</button>
+        </div>
+        <p class="hint" style="margin:0.6rem 0;text-align:left" data-i18n="host_custom_label">Or customize roles:</p>
+        <div class="role-grid" id="role-selector-grid"></div>
+        <p class="status-text mt-sm" id="role-count-status" data-i18n="host_no_roles">No roles selected</p>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-reveal-roles" disabled data-i18n="btn_deal_roles">🃏 Deal Roles</button>
+        <button class="btn btn-secondary" id="btn-start-game" disabled data-i18n="btn_start_game">⚔️ Start Game</button>
+        <button class="btn btn-ghost btn-sm" id="btn-host-cancel" data-i18n="btn_cancel">Cancel</button>
+      </div>
+    </section>
+
+    <!-- ── PLAYER JOIN ─────────────────────────────────────────────────────── -->
+    <section id="screen-player-join" class="screen" style="justify-content:center;gap:1rem">
+      <h2 class="screen-title" data-i18n="join_title">Join Room</h2>
+
+      <p class="hint" data-i18n="join_room_label">Enter the room code your host gave you</p>
+
+      <input
+        id="room-code-input"
+        class="text-input"
+        type="text"
+        maxlength="6"
+        data-i18n-placeholder="join_room_placeholder"
+        autocomplete="off"
+        autocapitalize="characters"
+        autocorrect="off"
+        spellcheck="false"
+        style="text-align:center;letter-spacing:0.3em;font-size:1.2rem;text-transform:uppercase"
+      />
+
+      <p class="hint" id="room-code-display-wrap" style="display:none">
+        <span data-i18n="join_room_display">Room code:</span>
+        <strong id="room-code-display" style="color:var(--text-accent)">------</strong>
+      </p>
+
+      <input
+        id="player-name-input"
+        class="text-input"
+        type="text"
+        maxlength="20"
+        data-i18n-placeholder="join_name_placeholder"
+        autocomplete="off"
+        autocapitalize="words"
+        spellcheck="false"
+      />
+
+      <p class="status-text" id="join-status"></p>
+      <p class="status-text error" id="join-error"></p>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-do-join" data-i18n="btn_join">Enter Room</button>
+        <button class="btn btn-ghost" id="btn-join-cancel" data-i18n="btn_cancel">Cancel</button>
+      </div>
+    </section>
+
+    <!-- ── OFFLINE HOST SETUP (no server) ──────────────────────────────────── -->
+    <section id="screen-offline-host" class="screen" style="gap:0.9rem">
+      <h2 class="screen-title" data-i18n="offline_host_title">📷 Offline Room</h2>
+      <p class="hint" data-i18n="offline_host_hint">No server needed. Add each player by sharing QR codes back and forth.</p>
+
+      <!-- Live player list -->
+      <div class="panel w-full" style="padding:0.75rem">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left">
+          <span data-i18n="host_players_label">Players In Lobby</span>
+          <span id="offline-host-count" style="float:right;color:var(--text-accent)">0</span>
+        </p>
+        <ul class="player-list" id="offline-host-player-list">
+          <li class="player-item" style="justify-content:center;color:var(--text-dim)" data-i18n="host_no_players">No one yet…</li>
+        </ul>
+      </div>
+
+      <button class="btn btn-primary w-full" id="btn-offline-add-player" data-i18n="offline_add_player">➕ Add Next Player</button>
+
+      <!-- Role selector (re-uses host setup styles) -->
+      <div class="panel w-full" style="padding:0.75rem">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left" data-i18n="host_preset_label">Quick Preset by Player Count</p>
+        <div class="preset-row">
+          <button class="preset-btn" data-count="9">9</button>
+          <button class="preset-btn" data-count="10">10</button>
+          <button class="preset-btn" data-count="11">11</button>
+          <button class="preset-btn" data-count="12">12</button>
+          <button class="preset-btn" data-count="13">13</button>
+          <button class="preset-btn" data-count="14">14</button>
+        </div>
+        <p class="hint" style="margin:0.6rem 0;text-align:left" data-i18n="host_custom_label">Or customize roles:</p>
+        <div class="role-grid" id="offline-role-selector-grid"></div>
+        <p class="status-text mt-sm" id="offline-role-count-status" data-i18n="host_no_roles">No roles selected</p>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-offline-reveal-roles" disabled data-i18n="btn_deal_roles">🃏 Deal Roles</button>
+        <button class="btn btn-secondary" id="btn-offline-start-game" disabled data-i18n="btn_start_game">⚔️ Start Game</button>
+        <button class="btn btn-ghost btn-sm" id="btn-offline-host-cancel" data-i18n="btn_cancel">Cancel</button>
+      </div>
+    </section>
+
+    <!-- ── OFFLINE PAIRING (host side: show offer QR + scan answer) ────────── -->
+    <section id="screen-offline-pair" class="screen" style="gap:1rem">
+      <h2 class="screen-title" id="offline-pair-title" data-i18n="offline_pair_title">📷 Add Player</h2>
+
+      <div class="qr-wrap">
+        <canvas id="offline-pair-qr" class="qr-canvas" width="280" height="280"></canvas>
+      </div>
+
+      <p class="status-text" id="offline-pair-status" data-i18n="offline_pair_step1">Step 1 of 2: Player scans this QR with their phone</p>
+
+      <input
+        id="offline-player-name-input"
+        class="text-input"
+        type="text"
+        maxlength="20"
+        data-i18n-placeholder="join_name_placeholder"
+        autocomplete="off"
+        autocapitalize="words"
+        spellcheck="false"
+      />
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-offline-scan-answer" data-i18n="offline_scan_answer">📷 Scan Player's Answer</button>
+        <button class="btn btn-ghost btn-sm" id="btn-offline-pair-cancel" data-i18n="btn_cancel">Cancel</button>
+      </div>
+    </section>
+
+    <!-- ── OFFLINE JOIN (player side: scan host QR + show answer) ──────────── -->
+    <section id="screen-offline-join" class="screen" style="gap:1rem;justify-content:center">
+      <h2 class="screen-title" data-i18n="offline_join_title">📷 Join Offline</h2>
+
+      <input
+        id="offline-join-name-input"
+        class="text-input"
+        type="text"
+        maxlength="20"
+        data-i18n-placeholder="join_name_placeholder"
+        autocomplete="off"
+        autocapitalize="words"
+        spellcheck="false"
+      />
+
+      <p class="hint" data-i18n="offline_join_hint">Enter your name, then scan the QR code shown on the host's phone.</p>
+
+      <p class="status-text" id="offline-join-status"></p>
+      <p class="status-text error" id="offline-join-error"></p>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-offline-scan-offer" data-i18n="offline_scan_offer">📷 Scan Host's QR</button>
+        <button class="btn btn-ghost" id="btn-offline-join-cancel" data-i18n="btn_cancel">Cancel</button>
+      </div>
+
+      <!-- Answer QR (shown after scanning offer) -->
+      <div id="offline-answer-wrap" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;width:100%">
+        <p class="status-text" data-i18n="offline_answer_hint">Show this QR to the host to finish the connection:</p>
+        <div class="qr-wrap">
+          <canvas id="offline-answer-qr" class="qr-canvas" width="280" height="280"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── LOBBY (player waiting) ──────────────────────────────────────────── -->
+    <section id="screen-lobby" class="screen" style="justify-content:center;gap:1rem">
+      <h2 class="screen-title" data-i18n="lobby_title">🏕️ Waiting To Start</h2>
+      <p class="hint" data-i18n="lobby_hint">The host will start the game once everyone has joined</p>
+      <ul class="player-list" id="lobby-player-list"></ul>
+    </section>
+
+    <!-- ── ROLE REVEAL (private, full-bleed character art) ─────────────────── -->
+    <section id="screen-role-reveal" class="screen role-reveal-screen">
+      <div class="role-reveal-photo" id="role-reveal-photo"></div>
+      <div class="role-reveal-scrim"></div>
+      <div class="role-reveal-content">
+        <p class="role-reveal-top-hint" data-i18n="reveal_top">Your Role</p>
+        <div class="role-reveal-info" id="role-reveal-info"></div>
+        <p class="hint hidden" id="wolf-teammates-label"></p>
+        <p class="hint" style="color:var(--text-dim);font-size:0.7rem;text-align:center" data-i18n="reveal_dont_show">Don't let others see your screen</p>
+        <button class="btn btn-primary" id="btn-role-got-it" data-i18n="btn_understood">Understood ✓</button>
+      </div>
+    </section>
+
+    <!-- ── NIGHT ───────────────────────────────────────────────────────────── -->
+    <section id="screen-night" class="screen" style="justify-content:center;gap:1rem">
+      <div class="moon-icon">🌙</div>
+      <h2 class="screen-title" id="night-round">Night 1</h2>
+      <div class="timer-display" id="night-timer">—</div>
+
+      <!-- Wolf team (shown only to wolf players) -->
+      <div class="wolf-team-wrap hidden w-full" style="text-align:center">
+        <p class="hint" style="margin-bottom:0.4rem" data-i18n="wolf_teammates">🐺 Wolf teammates:</p>
+        <div class="wolf-team-list" id="wolf-team-display"></div>
+      </div>
+
+      <!-- Action sheet container -->
+      <div id="action-sheet-container"></div>
+
+      <p class="hint" style="color:var(--text-dim)" data-i18n="mute_hint">Stay quiet — night has begun…</p>
+    </section>
+
+    <!-- ── DAY ─────────────────────────────────────────────────────────────── -->
+    <section id="screen-day" class="screen" style="gap:0.9rem">
+      <div class="phase-banner day" data-i18n="day_banner">☀️ Day</div>
+      <h2 class="screen-title" id="day-round">Day 1</h2>
+      <div class="timer-display" id="day-timer">—</div>
+
+      <!-- Gunner day action -->
+      <div id="gunner-action-wrap" class="hidden w-full" style="text-align:center">
+        <p class="hint" style="margin-bottom:0.5rem">🔫 <span id="gunner-bullets-left">2</span> <span data-i18n="gunner_bullets_left">bullets left</span></p>
+        <button class="btn btn-danger btn-sm" id="btn-gunner-shoot" data-i18n="btn_shoot">Shoot now</button>
+      </div>
+
+      <p class="hint" data-i18n="day_hint">Discuss and find the wolves!</p>
+      <ul class="player-list scroll-area" id="day-player-list"></ul>
+    </section>
+
+    <!-- ── VOTE ─────────────────────────────────────────────────────────────── -->
+    <section id="screen-vote" class="screen" style="gap:0.9rem">
+      <div class="phase-banner day" data-i18n="vote_banner">🗳️ Voting</div>
+      <h2 class="screen-title" id="vote-round">Day 1</h2>
+
+      <p class="hint" data-i18n="vote_hint">Tap on the name of the player you want to eliminate</p>
+      <ul class="player-list scroll-area w-full" id="vote-player-list"></ul>
+
+      <!-- Host only: end vote button -->
+      <button class="btn btn-secondary hidden" id="btn-end-vote" data-i18n="vote_host_end">End Voting (Host)</button>
+    </section>
+
+    <!-- ── GAME OVER ──────────────────────────────────────────────────────── -->
+    <section id="screen-game-over" class="screen" style="justify-content:center;gap:1.2rem">
+      <div class="winner-icon" id="winner-icon">🏆</div>
+      <h2 class="winner-title" id="winner-title">Game Over</h2>
+      <p class="winner-sub" id="winner-sub"></p>
+
+      <!-- Full role reveal (all players + their role) -->
+      <div class="panel w-full" id="game-over-reveal-wrap" style="padding:0.75rem;display:none">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left" data-i18n="all_roles">📜 All Roles</p>
+        <ul class="player-list" id="game-over-reveal-list"></ul>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary hidden" id="btn-play-again" data-i18n="btn_play_again">🔄 New Game</button>
+        <button class="btn btn-ghost hidden" id="btn-end-room" data-i18n="btn_end_room">✕ Close Room</button>
+        <p class="hint hidden" id="game-over-player-wait" style="color:var(--text-dim)" data-i18n="waiting_for_host_new">Waiting for the host to start a new game…</p>
+      </div>
+    </section>
+
+    <!-- ── GM PANEL (host overlay) ────────────────────────────────────────── -->
+    <section id="screen-gm-panel" class="screen" style="gap:0.9rem;justify-content:flex-start;padding-top:1rem">
+      <div style="display:flex;align-items:center;gap:1rem;width:100%;max-width:400px">
+        <h2 class="screen-title" style="flex:1" data-i18n="gm_panel_title">🎮 GM Panel</h2>
+        <span style="color:var(--text-dim);font-size:0.8rem" id="gm-phase-label">SETUP</span>
+        <span style="color:var(--text-dim);font-size:0.8rem" id="gm-round-label">Round 0</span>
+      </div>
+
+      <div class="panel w-full">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left" data-i18n="gm_timer">⏱️ Timer</p>
+        <div class="timer-display" id="gm-timer-display" style="font-size:3rem">—</div>
+        <div class="btn-group" style="margin-top:0.8rem">
+          <button class="btn btn-secondary btn-sm" id="btn-start-night-timer" data-i18n="btn_start_night_timer">▶ Start Night Timer (90s)</button>
+        </div>
+      </div>
+
+      <div class="panel w-full">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left" data-i18n="gm_wake">🔔 Wake Roles</p>
+        <div id="wake-ring-list" class="wake-ring-list"></div>
+      </div>
+
+      <div class="panel w-full">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left" data-i18n="gm_phase_ctrl">🔄 Phase Controls</p>
+        <div class="btn-group">
+          <button class="btn btn-secondary btn-sm" id="btn-resolve-night" data-i18n="btn_resolve_night">🌙 Resolve Night</button>
+          <button class="btn btn-secondary btn-sm" id="btn-start-day" data-i18n="btn_start_day">☀️ Start Day</button>
+          <button class="btn btn-secondary btn-sm" id="btn-start-vote" data-i18n="btn_start_vote">🗳️ Start Voting</button>
+          <button class="btn btn-ghost btn-sm" id="btn-gm-next-phase" data-i18n="btn_next_phase">⏭ Next Phase</button>
+        </div>
+      </div>
+
+      <div class="panel w-full">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left" data-i18n="gm_eliminate">⚰️ Eliminate Players</p>
+        <div id="elimination-tracker" class="scroll-area"></div>
+      </div>
+
+      <div class="panel w-full">
+        <p class="hint" style="margin-bottom:0.5rem;text-align:left" data-i18n="gm_log">📜 Game Log</p>
+        <div class="game-log" id="gm-game-log"></div>
+      </div>
+
+      <button class="btn btn-ghost btn-sm" id="btn-gm-close" data-i18n="btn_gm_close">✕ Close Panel</button>
+    </section>
+
+  </main>
+
+  <!-- ── GLOBAL OVERLAYS ─────────────────────────────────────────────────── -->
+
+  <div id="elimination-overlay" class="hidden" style="
+    position:fixed;inset:0;background:rgba(0,0,0,0.88);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:1rem;z-index:200;padding:1.5rem;
+  "></div>
+
+  <div id="dead-overlay" class="dead-overlay hidden">
+    <div class="skull">💀</div>
+    <p data-i18n="dead_title">You Have Died</p>
+    <p class="hint" style="color:var(--text-dim)" data-i18n="dead_hint">You may still watch but you cannot reveal any information</p>
+  </div>
+
+  <button class="gm-panel-toggle hidden" id="gm-panel-toggle" title="GM Panel">⚙️</button>
+  <div class="gm-panel hidden" id="gm-panel"></div>
+
+  <!-- ── Scripts ─────────────────────────────────────────────────────────── -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      // Resolve relative to current page so it works at root OR subpath (GitHub Pages)
+      const swUrl = new URL('sw.js', document.baseURI).href;
+      const scope = new URL('./', document.baseURI).href;
+      navigator.serviceWorker.register(swUrl, { scope });
+    }
+  </script>
+  <script src="src/vendor/qrcode.js"></script>
+  <script src="src/vendor/jsQR.min.js"></script>
+  <script src="src/vendor/simplepeer.min.js"></script>
+  <script type="module" src="src/ui.js"></script>
+
+  <script type="module">
+    import { submitGunnerShoot } from './src/player.js';
+    import { getState } from './src/state.js';
+    import { t } from './src/i18n.js';
+    document.getElementById('btn-gunner-shoot')?.addEventListener('click', () => {
+      const state = getState();
+      const alivePlayers = state.players.filter(p => p.alive && p.id !== state.myPlayerId);
+      const target = prompt(t('vote_hint') + '\n' + alivePlayers.map(p => p.name).join(', '));
+      const found = alivePlayers.find(p => p.name === target?.trim());
+      if (found) submitGunnerShoot(found.id);
+    });
+  </script>
+</body>
+</html>
